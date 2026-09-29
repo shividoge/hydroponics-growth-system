@@ -1,0 +1,758 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Autonomous Hydroponic Growth System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: mission-control page. Hero is a sticky 3D viewer beside copy; below it, one section per subsystem
+   (circuit, vision, telemetry, decisions), each a dark panel on a faint grid. */
+:root{
+  --bg:#07060f; --panel:#0f0d20; --panel2:#151230; --line:rgba(150,132,255,.18);
+  --fg:#ece9ff; --mut:#918db3; --blurple:#7c5cff; --glow:#a994ff; --teal:#23e6c0; --amber:#ffb547; --red:#ff6b7d;
+  --f-display:'Unbounded','Trebuchet MS',sans-serif; --f-body:'IBM Plex Sans','Segoe UI',system-ui,sans-serif; --f-mono:'JetBrains Mono',ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 16px/1.6 var(--f-body);overflow-x:hidden;
+  background-image:radial-gradient(900px 500px at 78% -5%,rgba(124,92,255,.22),transparent 65%),radial-gradient(700px 420px at 0% 30%,rgba(35,230,192,.07),transparent 60%),linear-gradient(rgba(150,132,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(150,132,255,.05) 1px,transparent 1px);
+  background-size:auto,auto,44px 44px,44px 44px;background-attachment:scroll}
+.wrap{width:min(1180px,100% - 32px);margin-inline:auto}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;margin:0;text-wrap:balance;letter-spacing:-.01em;line-height:1.15}
+h1{font-size:clamp(1.7rem,4.2vw,3.05rem)}
+h2{font-size:clamp(1.3rem,2.8vw,2rem)}
+h3{font-size:1rem;font-weight:500}
+p{margin:0}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.eyebrow{font:500 .72rem/1 var(--f-mono);letter-spacing:.16em;text-transform:uppercase;color:var(--glow)}
+.lead{color:var(--mut);max-width:60ch;font-size:1.05rem}
+:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+button{font:inherit;color:inherit;cursor:pointer}
+
+/* top bar */
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:rgba(7,6,15,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
+.top .wrap{display:flex;align-items:center;gap:20px;height:52px}
+.brand{font:600 .8rem var(--f-display);letter-spacing:.04em;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.brand i{width:10px;height:10px;border-radius:50%;background:var(--blurple);box-shadow:0 0 12px 3px var(--blurple)}
+.top nav{display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;min-width:0}
+.top nav a{font:500 .74rem var(--f-mono);letter-spacing:.06em;text-transform:uppercase;color:var(--mut);text-decoration:none;padding:8px 10px;border-radius:6px;white-space:nowrap}
+.top nav a:hover{color:var(--fg);background:rgba(124,92,255,.14)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,6.5fr);grid-template-areas:"copy stage" "explore stage";gap:22px 36px;padding-block:44px 28px;align-items:start}
+.hero-copy{grid-area:copy;display:flex;flex-direction:column;gap:16px}
+.stage{grid-area:stage;position:sticky;top:calc(64px + env(safe-area-inset-top,0px));height:min(76vh,700px);min-height:420px;border:1px solid var(--line);border-radius:18px;background:radial-gradient(70% 60% at 50% 55%,rgba(124,92,255,.2),transparent 70%),var(--panel);overflow:hidden}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y;cursor:grab}
+.stage canvas:active{cursor:grabbing}
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.lab{position:absolute;left:0;top:0;pointer-events:auto;font:500 .62rem/1 var(--f-mono);letter-spacing:.08em;text-transform:uppercase;padding:5px 7px;border-radius:5px;background:rgba(7,6,15,.72);border:1px solid var(--line);color:var(--fg);white-space:nowrap;will-change:transform}
+.lab.on{border-color:var(--teal);color:var(--teal)}
+.lab:hover{border-color:var(--glow)}
+.tools{position:absolute;left:10px;right:10px;bottom:10px;display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.tools button,.chip{font:500 .72rem var(--f-mono);letter-spacing:.05em;padding:7px 11px;border-radius:8px;background:rgba(15,13,32,.86);border:1px solid var(--line);color:var(--fg)}
+.tools button:hover,.chip:hover{border-color:var(--glow)}
+.tools button[aria-pressed="true"],.chip[aria-pressed="true"]{background:rgba(124,92,255,.28);border-color:var(--blurple)}
+.hint{position:absolute;top:10px;left:12px;font:.66rem var(--f-mono);letter-spacing:.08em;color:var(--mut);text-transform:uppercase}
+.explore{grid-area:explore;display:flex;flex-direction:column;gap:14px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.info{border:1px solid var(--line);border-radius:14px;padding:16px 18px;background:var(--panel);display:flex;flex-direction:column;gap:8px}
+.info h3{color:var(--teal)}
+.info ul{margin:0;padding-left:18px;color:var(--mut);font-size:.92rem}
+.info .tag{font:500 .68rem var(--f-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mut)}
+
+/* stat band */
+.band{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.band div{padding:18px 16px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:2px}
+.band div:last-child{border-right:0}
+.band b{font:600 clamp(1.4rem,2.6vw,2.1rem)/1.1 var(--f-display);color:var(--fg)}
+.band b small{font-size:.5em;color:var(--glow);margin-left:2px}
+.band span{font:.68rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+
+/* sections */
+section.sec{padding-block:72px 8px}
+.sec-head{display:flex;flex-direction:column;gap:12px;margin-bottom:26px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.panel{border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h3{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap}
+.panel .sub{font:.68rem var(--f-mono);letter-spacing:.06em;color:var(--mut);text-transform:uppercase}
+.note{font:.72rem/1.5 var(--f-mono);color:var(--mut)}
+.pill{display:inline-block;font:500 .64rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+.pill.ok{color:var(--teal);border-color:rgba(35,230,192,.4)}
+.pill.sim{color:var(--amber);border-color:rgba(255,181,71,.4)}
+canvas.chart{width:100%;display:block}
+
+/* circuit */
+.circuit-wrap{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:18px;align-items:start}
+.svgbox{overflow-x:auto;border:1px solid var(--line);border-radius:16px;background:var(--panel);padding:8px}
+.svgbox svg{display:block;width:100%;min-width:560px;height:auto}
+svg text{font-family:var(--f-mono);fill:var(--fg);font-size:13px}
+svg .dim{fill:var(--mut);font-size:11px}
+svg .blk{fill:var(--panel2);stroke:var(--line);stroke-width:1.5;cursor:pointer;transition:stroke .2s}
+svg .blk:hover,svg .blk.on{stroke:var(--teal)}
+svg .wire{fill:none;stroke-width:3;stroke-linecap:round;cursor:pointer;opacity:.8}
+svg .wire.on{opacity:1;filter:drop-shadow(0 0 5px currentColor)}
+svg .flow{stroke-dasharray:4 12;animation:flow 1.1s linear infinite}
+svg .flow.slow{animation-duration:2.2s}
+@keyframes flow{to{stroke-dashoffset:-16}}
+.wchips{display:flex;flex-wrap:wrap;gap:6px}
+.sw{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+
+/* vision */
+.steps{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px}
+.step{display:flex;flex-direction:column;gap:6px;min-width:0}
+.step canvas{width:100%;aspect-ratio:4/3;border-radius:10px;border:1px solid var(--line);background:#000;image-rendering:auto}
+.step b{font:500 .7rem var(--f-mono);letter-spacing:.06em;text-transform:uppercase}
+.step span{font-size:.78rem;color:var(--mut);line-height:1.4}
+.scroll-x{overflow-x:auto}
+.vis-ctrl{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:18px;margin-top:18px}
+.readouts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.ro{border:1px solid var(--line);border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:2px;background:var(--panel2)}
+.ro span{font:.64rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.ro b{font:500 1.35rem var(--f-mono);font-variant-numeric:tabular-nums}
+.ro b small{font-size:.6em;color:var(--mut);margin-left:3px}
+.slider{display:flex;gap:12px;align-items:center}
+input[type=range]{flex:1;min-width:0;accent-color:var(--blurple);height:32px}
+.play{width:42px;height:42px;border-radius:50%;border:1px solid var(--blurple);background:rgba(124,92,255,.2);display:grid;place-items:center;flex:none}
+.eq{font:.85rem var(--f-mono);color:var(--glow);word-break:break-word}
+
+/* telemetry */
+.live{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--panel2);display:flex;flex-direction:column;gap:2px;min-width:0}
+.tile span{font:.64rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut)}
+.tile b{font:500 1.5rem var(--f-mono);font-variant-numeric:tabular-nums}
+.tile b small{font-size:.5em;color:var(--mut);margin-left:3px}
+.tile canvas{width:100%;height:34px;display:block;margin-top:4px}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font:.7rem var(--f-mono);color:var(--mut)}
+
+/* targets */
+.meters{display:flex;flex-direction:column;gap:16px}
+.meter{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,2fr) auto;gap:6px 14px;align-items:center}
+.meter .n{font-size:.92rem}
+.meter .n small{display:block;font:.66rem var(--f-mono);color:var(--mut);letter-spacing:.06em;text-transform:uppercase}
+.bar{position:relative;height:10px;border-radius:99px;background:var(--panel2);border:1px solid var(--line)}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:99px;background:linear-gradient(90deg,var(--blurple),var(--teal))}
+.bar u{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--amber);text-decoration:none}
+.meter b{font:500 .95rem var(--f-mono);min-width:64px;text-align:right}
+
+/* decisions */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:520px;font-size:.9rem}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+th{font:500 .66rem var(--f-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--mut);vertical-align:bottom}
+th small{display:block;color:var(--glow)}
+td.s{font-family:var(--f-mono)}
+tr.win td:first-child{color:var(--teal)}
+tr.win td{background:rgba(35,230,192,.06)}
+.tot{display:flex;align-items:center;gap:10px}
+.tot .bar{flex:1;min-width:60px}
+.tot b{font:500 .9rem var(--f-mono);min-width:34px;text-align:right}
+
+/* prose lists */
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.list{margin:0;padding-left:18px;color:var(--mut);font-size:.94rem;display:flex;flex-direction:column;gap:6px}
+.list b{color:var(--fg);font-weight:500}
+footer{margin-top:80px;border-top:1px solid var(--line);padding-block:32px 60px;color:var(--mut);font-size:.85rem}
+footer .wrap{display:flex;flex-direction:column;gap:10px}
+
+@media (max-width:980px){
+  .hero{grid-template-columns:minmax(0,1fr);grid-template-areas:"copy" "stage" "explore";padding-top:28px}
+  .stage{position:relative;top:0;height:min(68vh,520px);min-height:380px}
+  .band{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .band div:nth-child(3){border-right:0}
+  .band div:nth-child(-n+3){border-bottom:1px solid var(--line)}
+  .circuit-wrap,.grid2,.vis-ctrl,.cols3{grid-template-columns:minmax(0,1fr)}
+  .steps{grid-template-columns:repeat(6,150px);width:max-content}
+  .live{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:520px){
+  .meter{grid-template-columns:minmax(0,1fr) auto}
+  .meter .bar{grid-column:1/-1;order:3}
+  .readouts{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ro b{font-size:1.05rem}
+  .tools button{padding:6px 9px;font-size:.66rem}
+  .lab{font-size:.56rem;padding:4px 5px}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}svg .flow{animation:none}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><i></i>HYDRO&middot;CV</div>
+    <nav aria-label="Sections">
+      <a href="#system">System</a><a href="#circuit">Circuit</a><a href="#vision">Vision</a><a href="#telemetry">Data</a><a href="#decisions">Design choices</a><a href="#limits">Limits</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+<section class="hero wrap" id="system">
+  <div class="hero-copy">
+    <span class="eyebrow">Space Agriculture &middot; Environmental Engineering</span>
+    <h1>Autonomous Hydroponic Plant Growth System</h1>
+    <p class="lead">A closed-loop growth chamber that senses its own climate, recirculates nutrients, and measures plant biomass with a camera. No harvest needed to know how much the plant weighs. Built for long-term space travel.</p>
+  </div>
+
+  <div class="stage" id="stage">
+    <canvas id="gl" aria-label="Interactive 3D model of the growth chamber. Drag to rotate."></canvas>
+    <div class="labels" id="labels"></div>
+    <div class="hint">Drag to orbit &middot; tap a part</div>
+    <div class="tools">
+      <button id="bExplode" aria-pressed="false">Exploded</button>
+      <button id="bLed" aria-pressed="true">Blurple LED</button>
+      <button id="bFlow" aria-pressed="true">Water flow</button>
+      <button id="bFan" aria-pressed="true">Fan</button>
+      <button id="bLabels" aria-pressed="true">Labels</button>
+      <button id="bCam" aria-pressed="false">Camera high</button>
+      <button id="bView">View: Iso</button>
+      <button id="bIn" aria-label="Zoom in">+</button><button id="bOut" aria-label="Zoom out">&minus;</button>
+    </div>
+  </div>
+
+  <div class="explore">
+    <div class="chips" id="chips" role="group" aria-label="Parts"></div>
+    <div class="info" id="info" aria-live="polite"></div>
+  </div>
+</section>
+
+<div class="wrap">
+  <div class="band" role="list">
+    <div role="listitem"><b>6.9<small>%</small></b><span>Biomass MAPE</span></div>
+    <div role="listitem"><b>0.91</b><span>R&sup2; canopy&rarr;mass</span></div>
+    <div role="listitem"><b>6</b><span>Independent trials</span></div>
+    <div role="listitem"><b>72<small>h</small></b><span>Climate log</span></div>
+    <div role="listitem"><b>21<small>d</small></b><span>Growth cycle</span></div>
+    <div role="listitem"><b>4</b><span>Sensor channels</span></div>
+  </div>
+</div>
+
+<!-- CIRCUIT -->
+<section class="sec wrap" id="circuit">
+  <div class="sec-head">
+    <span class="eyebrow">Electrical integration</span>
+    <h2>One Teensy runs the whole chamber</h2>
+    <p class="lead">The BME680 talks to the Teensy 4 over a shared I&sup2;C bus at 3.3 V. The same controller switches the LED through a relay and drives the air-circulation fan. Click any wire or block.</p>
+  </div>
+  <div class="circuit-wrap">
+    <div class="svgbox">
+      <svg viewBox="0 0 900 540" role="img" aria-label="Wiring diagram: Teensy 4 connected to a BME680 over I2C, with relay and LED, fan, camera and pump.">
+        <!-- camera -->
+        <rect class="blk" data-k="cam" x="345" y="14" width="160" height="58" rx="10"/>
+        <text x="425" y="40" text-anchor="middle">Top-down camera</text><text class="dim" x="425" y="58" text-anchor="middle">fixed geometry</text>
+        <path class="wire" data-k="cam" d="M425 72V130" stroke="#ff6b7d" style="color:#ff6b7d" stroke-dasharray="2 7"/>
+        <text class="dim" x="437" y="106">image data</text>
+        <!-- teensy -->
+        <rect class="blk" data-k="teensy" x="330" y="130" width="190" height="250" rx="12"/>
+        <text x="425" y="160" text-anchor="middle" style="font-size:16px;font-weight:500">Teensy 4</text>
+        <text class="dim" x="425" y="180" text-anchor="middle">central control logic</text>
+        <text class="dim" x="425" y="200" text-anchor="middle">data acquisition</text>
+        <text class="dim" x="425" y="220" text-anchor="middle">relay switching</text>
+        <g class="dim"><text x="510" y="174" text-anchor="end">3.3V</text><text x="510" y="214" text-anchor="end">SCL 19</text><text x="510" y="254" text-anchor="end">SDA 18</text><text x="510" y="294" text-anchor="end">GND</text></g>
+        <!-- bme -->
+        <rect class="blk" data-k="bme" x="690" y="130" width="180" height="190" rx="12"/>
+        <text x="780" y="160" text-anchor="middle" style="font-size:16px;font-weight:500">BME680</text>
+        <text class="dim" x="780" y="182" text-anchor="middle">temp &middot; RH</text>
+        <text class="dim" x="780" y="200" text-anchor="middle">eCO&#8322; &middot; VOC</text>
+        <g class="dim"><text x="702" y="174">VIN</text><text x="702" y="214">SCL</text><text x="702" y="254">SDA</text><text x="702" y="294">GND</text></g>
+        <!-- wires -->
+        <path class="wire" data-k="v33" d="M520 170H690" stroke="#ff6b7d" style="color:#ff6b7d"/>
+        <path class="wire flow slow" data-k="scl" d="M520 210H690" stroke="#ffd166" style="color:#ffd166"/>
+        <path class="wire flow" data-k="sda" d="M520 250H690" stroke="#23e6c0" style="color:#23e6c0"/>
+        <path class="wire" data-k="gnd" d="M520 290H690" stroke="#918db3" style="color:#918db3"/>
+        <text class="dim" x="605" y="345" text-anchor="middle">I&sup2;C &middot; 3.3 V logic &middot; shared bus</text>
+        <!-- relay + led -->
+        <path class="wire" data-k="relay" d="M330 170H180" stroke="#a994ff" style="color:#a994ff"/>
+        <rect class="blk" data-k="relay" x="30" y="140" width="150" height="62" rx="10"/>
+        <text x="105" y="166" text-anchor="middle">Relay</text><text class="dim" x="105" y="184" text-anchor="middle">switches LED</text>
+        <path class="wire" data-k="led" d="M105 202V262" stroke="#7c5cff" style="color:#7c5cff"/>
+        <rect class="blk" data-k="led" x="30" y="262" width="150" height="62" rx="10" style="fill:rgba(124,92,255,.3)"/>
+        <text x="105" y="288" text-anchor="middle">Blurple LED</text><text class="dim" x="105" y="306" text-anchor="middle">constant spectrum</text>
+        <!-- fan -->
+        <path class="wire" data-k="fan" d="M425 380V440" stroke="#23e6c0" style="color:#23e6c0"/>
+        <rect class="blk" data-k="fan" x="345" y="440" width="160" height="62" rx="10"/>
+        <text x="425" y="466" text-anchor="middle">5 V fan</text><text class="dim" x="425" y="484" text-anchor="middle">simulated breeze</text>
+        <!-- pump -->
+        <rect class="blk" data-k="pump" x="690" y="440" width="180" height="62" rx="10" stroke-dasharray="5 5"/>
+        <text x="780" y="466" text-anchor="middle">Submersible pump</text><text class="dim" x="780" y="484" text-anchor="middle">continuous recirculation</text>
+      </svg>
+    </div>
+    <div class="panel">
+      <h3>Wire inspector <span class="sub">tap to select</span></h3>
+      <div class="wchips" id="wchips"></div>
+      <div id="winfo"></div>
+    </div>
+  </div>
+</section>
+
+<!-- VISION -->
+<section class="sec wrap" id="vision">
+  <div class="sec-head">
+    <span class="eyebrow">Computer-vision pipeline</span>
+    <h2>From a green blob to grams</h2>
+    <p class="lead">A fixed top-down camera and a constant blurple LED remove geometry and lighting noise. Every step below runs live in your browser on a generated plant image. Drag the day slider and watch the canopy area and predicted mass follow.</p>
+  </div>
+  <div class="panel">
+    <div class="scroll-x">
+      <div class="steps" id="steps"></div>
+    </div>
+    <div class="vis-ctrl">
+      <div style="display:flex;flex-direction:column;gap:14px;min-width:0">
+        <div class="slider">
+          <button class="play" id="play" aria-label="Play growth"><svg width="14" height="14" viewBox="0 0 14 14"><path id="playIcon" d="M3 1.5v11l9-5.5z" fill="#ece9ff"/></svg></button>
+          <input type="range" id="day" min="1" max="21" value="12" aria-label="Day of growth cycle">
+          <span class="mono" id="dayLbl" style="min-width:64px;text-align:right">Day 12</span>
+        </div>
+        <div class="readouts">
+          <div class="ro"><span>Canopy</span><b id="rPx">0<small>px</small></b></div>
+          <div class="ro"><span>Area</span><b id="rCm">0<small>cm&sup2;</small></b></div>
+          <div class="ro"><span>Biomass</span><b id="rG" style="color:var(--teal)">0<small>g</small></b></div>
+        </div>
+        <p class="eq">ExG = 2G &minus; R &minus; B<br>Area(cm&sup2;) = pixels &times; 0.0125<br>Biomass(g) = 0.14 &middot; Area + 0.6</p>
+        <p class="note">The pipeline steps and formulas are from the project. The calibration factor and regression coefficients here are illustrative stand-ins, since the fitted values are not published on the board.</p>
+      </div>
+      <div style="min-width:0">
+        <h3 style="margin-bottom:8px">Predicted growth curve <span class="pill sim">illustrative</span></h3>
+        <canvas class="chart" id="growth" style="height:210px"></canvas>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TELEMETRY -->
+<section class="sec wrap" id="telemetry">
+  <div class="sec-head">
+    <span class="eyebrow">Results &amp; validation</span>
+    <h2>Stable climate, accurate predictions</h2>
+    <p class="lead">Six independent growth cycles, one model, a mean error of 6.9%. The chamber held temperature and humidity steady enough for the camera to trust its own numbers.</p>
+  </div>
+
+  <div class="panel" style="margin-bottom:18px">
+    <h3>Live sensor feed <span class="pill sim">simulated stream</span></h3>
+    <div class="live" id="live"></div>
+    <p class="note">Values drift inside the ranges recorded on the chamber: 24&ndash;32 &deg;C, 40&ndash;52 % RH, 400&ndash;750 ppm eCO&#8322;, 30&ndash;230 ppb TVOC.</p>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h3>Climate stability <span class="sub">72 h monitoring</span></h3>
+      <canvas class="chart" id="cClimate" style="height:250px"></canvas>
+      <div class="legend"><span><span class="sw" style="background:var(--blurple)"></span>Temperature &plusmn;~3 &deg;C</span><span><span class="sw" style="background:var(--amber)"></span>Humidity &plusmn;~6 % RH</span></div>
+      <p class="note">Curves are reconstructed to match the recorded ranges and variance.</p>
+    </div>
+    <div class="panel">
+      <h3>Air quality dynamics <span class="sub">72 h monitoring</span></h3>
+      <canvas class="chart" id="cAir" style="height:250px"></canvas>
+      <div class="legend"><span><span class="sw" style="background:var(--teal)"></span>TVOC 30&ndash;230 ppb, non-accumulative</span><span><span class="sw" style="background:var(--red)"></span>eCO&#8322; 400&ndash;750 ppm, transient peaks</span></div>
+      <p class="note">Curves are reconstructed to match the recorded ranges.</p>
+    </div>
+    <div class="panel">
+      <h3>Prediction error by trial <span class="sub">MAPE %</span></h3>
+      <canvas class="chart" id="cMape" style="height:250px"></canvas>
+      <div class="legend"><span><span class="sw" style="background:var(--blurple)"></span>Trial error (from the board)</span><span><span class="sw" style="background:var(--amber)"></span>15% target</span></div>
+    </div>
+    <div class="panel">
+      <h3>Predicted vs measured biomass <span class="sub">R&sup2; = 0.91</span></h3>
+      <canvas class="chart" id="cScatter" style="height:250px"></canvas>
+      <p class="note">Six points, one per trial. Errors match the board's per-trial MAPE. The gram values are illustrative because per-trial masses are not printed on the board.</p>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:18px">
+    <h3>Design targets vs results</h3>
+    <div class="meters" id="meters"></div>
+  </div>
+</section>
+
+<!-- DECISIONS -->
+<section class="sec wrap" id="decisions">
+  <div class="sec-head">
+    <span class="eyebrow">Engineering decision analysis</span>
+    <h2>Why these parts</h2>
+    <p class="lead">Each choice went through a weighted decision matrix. Criteria weights are shown in the header row. Totals are the board's own scores.</p>
+  </div>
+  <div class="panel">
+    <div class="tabs" id="dtabs" role="tablist"></div>
+    <div class="tbl"><table id="dtable"></table></div>
+    <p class="note" id="dwhy"></p>
+  </div>
+</section>
+
+<!-- LIMITS -->
+<section class="sec wrap" id="limits">
+  <div class="sec-head">
+    <span class="eyebrow">Analysis &amp; interpretation</span>
+    <h2>What it proves, and where it stops</h2>
+  </div>
+  <div class="cols3">
+    <div class="panel"><h3>Engineering significance</h3>
+      <ul class="list"><li>Non-destructive biomass estimation in controlled environments</li><li>No destructive harvest needed during growth monitoring</li><li>A base for autonomous agricultural systems</li><li>Embedded systems, computer vision and predictive modeling in one framework</li></ul></div>
+    <div class="panel"><h3>Limitations</h3>
+      <ul class="list"><li>Assumes constant lighting and fixed camera geometry</li><li>Leaf overlap adds segmentation uncertainty</li><li>Biomass depends on leaf density and water content</li><li><b>Small dataset, n = 6 trials</b></li><li>Error sources: edge segmentation, calibration sensitivity, small environmental swings, VOC/CO&#8322; sensor noise</li></ul></div>
+    <div class="panel"><h3>Where it can go</h3>
+      <ul class="list"><li><b>Space-based agriculture</b> (CELSS systems)</li><li>Autonomous greenhouse optimization</li><li>Precision agriculture monitoring</li><li>Resource-constrained environments</li></ul></div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="eyebrow">Autonomous Hydroponic Plant Growth System with Computer Vision-Based Growth Analysis for Long-Term Space Travel</div>
+    <p>Environmental Engineering &middot; SSEF project. The 3D model is a procedural rebuild of the CAD design; the board and CAD are the source of truth.</p>
+    <p>Sources: NASA, indoor farming research and controlled-environment systems. Rajaseger et al. (2023), trends in sustainable hydroponic crop production. Takshi &amp; Phan (2023), oxygen sensing in root-zone monitoring. Scotts Miracle-Gro Company product safety documentation. Rockwool Group growing media guidelines. Bambu Lab 3D printing safety guidelines.</p>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s), css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function rng(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function visible(el,cb){new IntersectionObserver(e=>cb(e[0].isIntersecting),{rootMargin:'100px'}).observe(el)}
+
+/* ================= 3D MODEL ================= */
+const PARTS={
+ chamber:{n:'Growth chamber',short:'Chamber',tag:'Housing',lines:['Fixed top-down camera geometry','Constant LED spectrum','Controlled environment around a single plant','Creates the housing for chamber and sensors']},
+ reservoir:{n:'Reservoir base',short:'Reservoir',tag:'Nutrient storage',lines:['External nutrient storage','Pump housing compartment','Nutrient: Miracle-Gro, scored 450 in the selection matrix']},
+ platform:{n:'White spacer platform',short:'Platform',tag:'Mounting plane',lines:['Mounting plane for sensor, microcontroller and fan','Structural separation from the reservoir']},
+ teensy:{n:'Teensy 4 controller',short:'Teensy 4',tag:'Central control',lines:['Central control logic','Sensor data acquisition','Camera data processing','Relay switching for the LED','Top score in board selection: 425']},
+ bme:{n:'BME680 sensor',short:'BME680',tag:'Environmental sensing',lines:['Temperature (°C) and relative humidity (%)','Equivalent CO₂ (ppm) and VOC (ppb)','I²C at 3.3 V on a shared bus']},
+ fan:{n:'5 V circulation fan',short:'Fan',tag:'Air circulation',lines:['5 V fan moves air across the plant','Simulates a breeze for the stems']},
+ led:{n:'Blurple LED',short:'LED',tag:'Lighting',lines:['Constant spectral output','Best growth and CV stability in the lighting matrix (455)','Switched by the Teensy through a relay']},
+ camera:{n:'Camera mount',short:'Camera',tag:'Vision',lines:['External camera positioning','Two adjustable positions depending on plant height','Fixed top-down view for repeatable canopy images']},
+ pump:{n:'Submersible pump',short:'Pump',tag:'Circulation',lines:['Submersible pump-driven delivery','Continuous recirculation loop']},
+ plumb:{n:'Water circuit',short:'Plumbing',tag:'Closed loop',lines:['Nutrient delivered from the reservoir to the roots','Gravity-assisted return flow','Closed-loop nutrient cycling']},
+ plant:{n:'Plant in rockwool',short:'Plant',tag:'Subject',lines:['Single-plant imaging configuration','Canopy area is the input to the biomass model']}
+};
+const ORDER=['chamber','reservoir','platform','teensy','bme','fan','led','camera','pump','plumb','plant'];
+let sel='chamber', T=window.THREE;
+const canvas=$('#gl'), stage=$('#stage');
+const chipsEl=$('#chips'), infoEl=$('#info'), labelsEl=$('#labels');
+ORDER.forEach(id=>{const b=document.createElement('button');b.className='chip';b.textContent=PARTS[id].short;b.dataset.id=id;b.setAttribute('aria-pressed','false');b.onclick=()=>select(id);chipsEl.appendChild(b);
+  const l=document.createElement('button');l.className='lab';l.textContent=PARTS[id].short;l.dataset.id=id;l.onclick=()=>select(id);labelsEl.appendChild(l);PARTS[id].lab=l});
+function select(id){sel=id;const p=PARTS[id];
+  chipsEl.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.id===id));
+  ORDER.forEach(k=>PARTS[k].lab.classList.toggle('on',k===id));
+  infoEl.innerHTML='<span class="tag">'+p.tag+'</span><h3>'+p.n+'</h3><ul>'+p.lines.map(x=>'<li>'+x+'</li>').join('')+'</ul>';}
+select('chamber');
+
+let ok=false;
+try{ ok=!!T && !!document.createElement('canvas').getContext('webgl'); }catch(e){}
+if(!ok){stage.insertAdjacentHTML('beforeend','<p class="note" style="position:absolute;inset:40px;text-align:center">3D view needs WebGL, which this browser does not provide. The rest of the page works.</p>');}
+else init3D();
+
+function init3D(){
+ const renderer=new T.WebGLRenderer({canvas,antialias:true,alpha:true});
+ renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
+ const scene=new T.Scene();
+ const cam=new T.PerspectiveCamera(36,1,.1,100);
+ scene.add(new T.HemisphereLight(0xc9ccff,0x140d30,.95));
+ const dl=new T.DirectionalLight(0xffffff,.85);dl.position.set(5,9,5);scene.add(dl);
+ const rim=new T.DirectionalLight(0x8a6bff,.7);rim.position.set(-6,3,-6);scene.add(rim);
+ const ledLight=new T.PointLight(0x8c6bff,2.2,9);ledLight.position.set(.6,3.8,0);scene.add(ledLight);
+ const grid=new T.GridHelper(22,22,0x3a2f7a,0x1c1740);grid.position.y=-.02;grid.material.transparent=true;grid.material.opacity=.7;scene.add(grid);
+
+ const M={
+  white:new T.MeshStandardMaterial({color:0xecebf5,roughness:.5,metalness:.05}),
+  grey:new T.MeshStandardMaterial({color:0xcfd0de,roughness:.6}),
+  wall:new T.MeshStandardMaterial({color:0xd5d6e6,roughness:.5,transparent:true,opacity:.26,depthWrite:false}),
+  glass:new T.MeshStandardMaterial({color:0xa8d8ff,roughness:.05,metalness:.1,transparent:true,opacity:.12,depthWrite:false,side:T.DoubleSide}),
+  water:new T.MeshStandardMaterial({color:0x1fd8b8,roughness:.2,transparent:true,opacity:.38,depthWrite:false}),
+  dark:new T.MeshStandardMaterial({color:0x14161f,roughness:.5,metalness:.3}),
+  gold:new T.MeshStandardMaterial({color:0xd6b45a,roughness:.3,metalness:.8}),
+  steel:new T.MeshStandardMaterial({color:0xb9bccb,roughness:.3,metalness:.8}),
+  blue:new T.MeshStandardMaterial({color:0x2b62e8,roughness:.5}),
+  leaf:new T.MeshStandardMaterial({color:0x3fbf7c,roughness:.6,emissive:0x0b3a2b}),
+  rock:new T.MeshStandardMaterial({color:0xb7b0c8,roughness:.95}),
+  ledOn:new T.MeshBasicMaterial({color:0xa58bff}),
+  tube:new T.MeshStandardMaterial({color:0x7be8d5,roughness:.3,transparent:true,opacity:.8}),
+  pump:new T.MeshStandardMaterial({color:0x2a2f45,roughness:.4,metalness:.4})
+ };
+ const mesh=(g,m,x=0,y=0,z=0)=>{const o=new T.Mesh(g,m);o.position.set(x,y,z);return o};
+ const box=(w,h,d,m,x,y,z)=>mesh(new T.BoxGeometry(w,h,d),m,x,y,z);
+ const edge=(o,c=0x9aa8ff,op=.6)=>{o.add(new T.LineSegments(new T.EdgesGeometry(o.geometry),new T.LineBasicMaterial({color:c,transparent:true,opacity:op})));return o};
+ const G={};ORDER.forEach(id=>{G[id]=new T.Group();scene.add(G[id])});
+ const OFF={reservoir:0,pump:0,platform:.8,plumb:1,teensy:1.6,bme:1.6,fan:1.7,chamber:1.7,plant:2.6,led:3,camera:4};
+ const NOPICK=new Set();
+
+ // reservoir
+ const res=edge(box(4,1.3,2.8,M.wall,0,.65,0),0xb9c4ff,.7);NOPICK.add(res);G.reservoir.add(res,box(4,.08,2.8,M.grey,0,.04,0));
+ const wat=box(3.84,.9,2.64,M.water,0,.52,0);NOPICK.add(wat);G.reservoir.add(wat);
+ // platform
+ G.platform.add(edge(box(4,.3,2.8,M.white,0,1.45,0),0x8090d0,.4));
+ [[0,1.66,1.35,4,.06,.1],[0,1.66,-1.35,4,.06,.1],[1.95,1.66,0,.1,.06,2.6],[-1.95,1.66,0,.1,.06,2.6]].forEach(a=>G.platform.add(box(a[3],a[4],a[5],M.white,a[0],a[1],a[2])));
+ // chamber
+ const ch=edge(box(2.4,2.6,2,M.glass,.6,2.9,0),0xbfd0ff,.8);NOPICK.add(ch);G.chamber.add(ch);
+ [[-.6,1.6],[1.8,1.6]].forEach(a=>[-1,1].forEach(z=>G.chamber.add(box(.07,2.6,.07,M.white,a[0],2.9,z*1))));
+ // led
+ const ledPanel=box(2,.08,1.4,M.ledOn,.6,4.13,0);G.led.add(ledPanel);
+ const ledFrame=box(2.1,.05,1.5,M.white,.6,4.19,0);G.led.add(ledFrame);
+ const beam=mesh(new T.ConeGeometry(1.05,2.25,40,1,true),new T.MeshBasicMaterial({color:0x7c5cff,transparent:true,opacity:.11,blending:T.AdditiveBlending,depthWrite:false,side:T.DoubleSide}),.6,2.98,0);NOPICK.add(beam);G.led.add(beam);
+ // plant
+ G.plant.add(box(.55,.5,.55,M.rock,.6,1.85,0));
+ const plantG=new T.Group();plantG.position.set(.6,2.12,0);G.plant.add(plantG);
+ const R=rng(7);
+ for(let i=0;i<11;i++){const lg=new T.Group();lg.rotation.y=i*2.399;const l=mesh(new T.SphereGeometry(1,14,9),M.leaf,.42+i*.015,.05*i,0);l.scale.set(.5-.012*i,.05,.24-.006*i);l.rotation.z=.32+R()*.25;lg.add(l);lg.position.y=i*.045;plantG.add(lg)}
+ plantG.add(mesh(new T.CylinderGeometry(.03,.04,.3,8),M.leaf,0,.1,0));
+ // fan
+ const fanG=new T.Group();fanG.position.set(-.84,2.35,0);G.fan.add(fanG);
+ fanG.add(box(.14,.75,.75,M.white),box(.12,.02,.02,M.dark));
+ G.fan.add(box(.14,.55,.14,M.white,-.84,1.87,0));
+ const blades=new T.Group();fanG.add(blades);
+ for(let i=0;i<5;i++){const b=new T.Group();b.rotation.x=i*Math.PI*2/5;b.add(box(.03,.3,.1,M.dark,.09,.18,0));blades.add(b)}
+ blades.add(mesh(new T.CylinderGeometry(.07,.07,.06,16),M.steel,.09,0,0)); blades.children[5].rotation.z=Math.PI/2;
+ // teensy
+ G.teensy.add(box(.5,.05,1,M.dark,-1.55,1.65,-.35),box(.22,.03,.22,M.steel,-1.55,1.69,-.2),box(.18,.09,.2,M.steel,-1.55,1.7,-.8));
+ [-.2,.2].forEach(x=>G.teensy.add(box(.03,.03,.9,M.gold,-1.55+x,1.68,-.35)));
+ // bme
+ G.bme.add(box(.5,.04,.5,M.blue,-1.55,1.64,.85),box(.16,.04,.16,M.steel,-1.55,1.68,.85));
+ [[-1.72,0xff6b7d],[-1.62,0xffd166],[-1.5,0x23e6c0],[-1.4,0x918db3]].forEach(a=>{const g=new T.BufferGeometry().setFromPoints([new T.Vector3(a[0],1.7,.1),new T.Vector3(a[0],1.7,.62)]);G.bme.add(new T.Line(g,new T.LineBasicMaterial({color:a[1]})))});
+ // camera
+ G.camera.add(box(.1,4.1,.1,M.white,2.3,3.65,0));
+ const hold=new T.Group();G.camera.add(hold);
+ hold.add(box(1.75,.09,.14,M.white,1.475,0,0),box(.55,.3,.4,M.dark,.6,-.15,0),mesh(new T.CylinderGeometry(.11,.11,.1,20),new T.MeshStandardMaterial({color:0x123a8a,metalness:.6,roughness:.2}),.6,-.35,0),box(.03,.03,.03,new T.MeshBasicMaterial({color:0xff4b5c}),.82,-.06,.21));
+ let camY=4.6,camTarget=4.6;hold.position.y=camY;
+ // pump
+ G.pump.add(mesh(new T.CylinderGeometry(.3,.3,.55,24),M.pump,-1.3,.42,.6),mesh(new T.CylinderGeometry(.09,.09,.3,12),M.steel,-1.3,.8,.6));
+ // plumbing
+ const sup=new T.CatmullRomCurve3([[-1.3,.8,.6],[-1.3,1.5,1.2],[-1.3,4.0,1.2],[-.2,4.45,.95],[.1,3.9,.86],[.3,3.3,.5],[.35,2.5,.25]].map(p=>new T.Vector3(...p)));
+ const ret=new T.CatmullRomCurve3([new T.Vector3(1.2,1.75,.2),new T.Vector3(1.2,1,.2)]);
+ G.plumb.add(mesh(new T.TubeGeometry(sup,80,.045,8),M.tube),mesh(new T.TubeGeometry(ret,8,.05,8),M.tube));
+ const drops=[];const dg=new T.SphereGeometry(.06,8,8),dm=new T.MeshBasicMaterial({color:0xbafff2});
+ for(let i=0;i<16;i++){const d=new T.Mesh(dg,dm);d.userData={t:i/16,c:i<12?sup:ret};G.plumb.add(d);drops.push(d)}
+ // pipe stubs drawn on platform
+ // anchors (local, before explode)
+ const ANCH={chamber:[1.8,3.6,1],reservoir:[2,.55,1.4],platform:[2,1.45,1.4],teensy:[-1.55,1.75,-.85],bme:[-1.55,1.75,.9],fan:[-.84,2.9,0],led:[.6,4.25,-.7],camera:[.6,4.6,0],pump:[-1.3,.7,.6],plumb:[-1.3,3.2,1.2],plant:[.6,2.5,0]};
+
+ // selection box
+ const selBox=new T.Box3Helper(new T.Box3(),0x23e6c0);scene.add(selBox);
+
+ // orbit
+ const V={az:.75,po:1.18,r:14.2,ty:2.7,az0:.75,tgtR:14.2,tgtPo:1.18,tgtAz:null,auto:true,lastTouch:0};
+ const views={Iso:[.75,1.18],Front:[0,1.5],Top:[.75,.12]};let viewNames=Object.keys(views),vi=0;
+ let exploded=0,exTarget=0,size=[1,1];
+ function resize(){const r=stage.getBoundingClientRect();size=[r.width,r.height];renderer.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.setViewOffset(r.width,r.height,0,r.height>460?46:30,r.width,r.height);cam.updateProjectionMatrix();V.baseR=r.width/r.height<.95?17:14.2}
+ V.baseR=14.2;
+ addEventListener('resize',resize);resize();
+ const ptrs=new Map();let moved=0,startXY=null;
+ canvas.addEventListener('pointerdown',e=>{canvas.setPointerCapture(e.pointerId);ptrs.set(e.pointerId,{x:e.clientX,y:e.clientY,t:e.pointerType});moved=0;startXY=[e.clientX,e.clientY];V.auto=false;V.tgtAz=null});
+ canvas.addEventListener('pointermove',e=>{const p=ptrs.get(e.pointerId);if(!p)return;
+  if(ptrs.size===2){const a=[...ptrs.values()];const d0=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);p.x=e.clientX;p.y=e.clientY;const d1=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);V.tgtR=clamp(V.tgtR*d0/Math.max(d1,1),6,26);moved=99;return}
+  const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;moved+=Math.abs(dx)+Math.abs(dy);
+  V.az-=dx*.0075;V.tgtAz=null;if(p.t==='mouse')V.po=clamp(V.po-dy*.006,.1,1.65)});
+ const up=e=>{const was=ptrs.get(e.pointerId);ptrs.delete(e.pointerId);V.lastTouch=performance.now();
+  if(was&&moved<6&&ptrs.size===0)pick(e)};
+ canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',e=>ptrs.delete(e.pointerId));
+ canvas.addEventListener('wheel',e=>{if(e.ctrlKey||e.metaKey){e.preventDefault();V.tgtR=clamp(V.tgtR*(1+e.deltaY*.002),6,26)}},{passive:false});
+ const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+ const ray=new T.Raycaster(),pm=[];
+ ORDER.forEach(id=>G[id].traverse(o=>{if(o.isMesh&&!NOPICK.has(o)){o.userData.part=id;pm.push(o)}}));
+ function pick(e){const r=canvas.getBoundingClientRect();ray.setFromCamera(new T.Vector2((e.clientX-r.left)/r.width*2-1,-((e.clientY-r.top)/r.height)*2+1),cam);
+  const h=ray.intersectObjects(pm,false)[0];if(h)select(h.object.userData.part)}
+
+ // toolbar
+ const tog=(id,fn)=>{const b=$(id);b.onclick=()=>{const v=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',v);fn(v)}};
+ let ledOn=true,flowOn=true,fanOn=true,labOn=true;
+ tog('#bExplode',v=>{exTarget=v?1:0});
+ tog('#bLed',v=>{ledOn=v});tog('#bFlow',v=>{flowOn=v});tog('#bFan',v=>{fanOn=v});
+ tog('#bLabels',v=>{labOn=v;labelsEl.style.display=v?'':'none'});
+ tog('#bCam',v=>{camTarget=v?5.1:4.6;$('#bCam').textContent=v?'Camera low':'Camera high'});
+ $('#bView').onclick=()=>{vi=(vi+1)%viewNames.length;const k=viewNames[vi];$('#bView').textContent='View: '+k;V.auto=false;V.tgtAz=views[k][0];V.tgtPo=views[k][1]};
+ $('#bIn').onclick=()=>{V.tgtR=clamp(V.tgtR*.82,6,26)};$('#bOut').onclick=()=>{V.tgtR=clamp(V.tgtR*1.2,6,26)};
+ V.tgtR=V.baseR;V.r=V.baseR;
+
+ let run=true;visible(stage,v=>{run=v});
+ const clock=new T.Clock(),v3=new T.Vector3(),bx=new T.Box3();
+ function frame(){requestAnimationFrame(frame);if(!run)return;
+  const dt=Math.min(clock.getDelta(),.05),t=clock.elapsedTime;
+  exploded+=(exTarget-exploded)*Math.min(1,dt*5);
+  ORDER.forEach(id=>{G[id].position.y=(OFF[id]||0)*exploded});
+  camY+=(camTarget-camY)*Math.min(1,dt*5);hold.position.y=camY;
+  if(!reduce&&V.auto)V.az+=dt*.16;
+  if(!V.auto&&performance.now()-V.lastTouch>5000&&ptrs.size===0&&V.tgtAz===null)V.auto=true;
+  if(V.tgtAz!==null){let d=V.tgtAz-V.az;d=Math.atan2(Math.sin(d),Math.cos(d));V.az+=d*Math.min(1,dt*5);V.po+=(V.tgtPo-V.po)*Math.min(1,dt*5);if(Math.abs(d)<.005&&Math.abs(V.tgtPo-V.po)<.005)V.tgtAz=null}
+  V.r+=(V.tgtR*(1+exploded*.5)-V.r)*Math.min(1,dt*6);
+  const ty=2.7+exploded*1.9;
+  cam.position.set(Math.sin(V.az)*Math.sin(V.po)*V.r,ty+Math.cos(V.po)*V.r,Math.cos(V.az)*Math.sin(V.po)*V.r);cam.lookAt(0,ty,0);
+  ledPanel.material.color.set(ledOn?0xa58bff:0x2a2445);ledLight.intensity=ledOn?2.2:0;beam.visible=ledOn;
+  if(!reduce){if(fanOn)blades.rotation.x+=dt*14;
+   if(flowOn)drops.forEach(d=>{d.userData.t=(d.userData.t+dt*(d.userData.c===sup?.16:.9))%1;d.position.copy(d.userData.c.getPoint(d.userData.t))})}
+  drops.forEach(d=>{d.visible=flowOn;if(reduce&&flowOn&&!d.userData.p){d.userData.p=1;d.position.copy(d.userData.c.getPoint(d.userData.t))}});
+  bx.setFromObject(G[sel]);selBox.box.copy(bx);
+  if(labOn)ORDER.forEach(id=>{v3.set(...ANCH[id]);v3.y+=(OFF[id]||0)*exploded;v3.project(cam);const l=PARTS[id].lab,hid=v3.z>1;
+   l.style.transform='translate('+((v3.x*.5+.5)*size[0]-l.offsetWidth/2).toFixed(1)+'px,'+((-v3.y*.5+.5)*size[1]-l.offsetHeight/2).toFixed(1)+'px)';l.style.visibility=hid?'hidden':'visible'});
+  renderer.render(scene,cam)}
+ frame();
+}
+
+/* ================= CIRCUIT ================= */
+const WIRES={
+ v33:{n:'VIN → 3.3 V',c:'#ff6b7d',d:'Powers the BME680 from the Teensy 3.3 V rail, the same level as the I²C logic.'},
+ gnd:{n:'GND → GND',c:'#918db3',d:'Common ground shared by the controller and the sensor.'},
+ sda:{n:'SDA → I²C data',c:'#23e6c0',d:'Bidirectional data line on Teensy pin 18. Carries the readings for temperature, humidity, eCO₂ and VOC.'},
+ scl:{n:'SCL → I²C clock',c:'#ffd166',d:'Clock line on Teensy pin 19. The Teensy drives it and the BME680 answers.'},
+ teensy:{n:'Teensy 4',c:'#a994ff',d:'Central control logic. Reads the sensor, switches the LED relay, runs the fan and handles camera data.'},
+ bme:{n:'BME680 sensor',c:'#a994ff',d:'Environmental sensing over a shared I²C bus at 3.3 V logic. Reports °C, %RH, eCO₂ ppm and VOC ppb.'},
+ relay:{n:'Relay',c:'#a994ff',d:'The Teensy switches the LED for the growth environment through this relay.'},
+ led:{n:'Blurple LED',c:'#7c5cff',d:'Constant spectral output. Fixed lighting is what keeps segmentation stable from day to day.'},
+ fan:{n:'5 V fan',c:'#23e6c0',d:'Air circulation that simulates a breeze for the plant stems.'},
+ cam:{n:'Top-down camera',c:'#ff6b7d',d:'Fixed geometry, standardized exposure and resolution. Sends frames for the ExG and HSV pipeline.'},
+ pump:{n:'Submersible pump',c:'#918db3',d:'Drives the continuous nutrient recirculation loop from the external reservoir, with gravity-assisted return.'}
+};
+const wchips=$('#wchips'),winfo=$('#winfo');
+['v33','gnd','sda','scl','teensy','bme','relay','led','fan','cam','pump'].forEach(k=>{const b=document.createElement('button');b.className='chip';b.dataset.k=k;b.setAttribute('aria-pressed','false');b.innerHTML='<span class="sw" style="background:'+WIRES[k].c+'"></span>'+WIRES[k].n.split(' →')[0];b.onclick=()=>wsel(k);wchips.appendChild(b)});
+function wsel(k){const w=WIRES[k];winfo.innerHTML='<h3 style="color:'+w.c+';margin-bottom:6px">'+w.n+'</h3><p style="color:var(--mut)">'+w.d+'</p>';
+ wchips.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c.dataset.k===k));
+ document.querySelectorAll('svg [data-k]').forEach(e=>e.classList.toggle('on',e.dataset.k===k));}
+document.querySelectorAll('svg [data-k]').forEach(e=>e.addEventListener('click',()=>wsel(e.dataset.k)));
+wsel('sda');
+
+/* ================= VISION ================= */
+const W=200,H=150,NAMES=[['Raw frame','Fixed top-down view under blurple light'],['HSV','RGB converted to hue, saturation, value'],['Excess Green','ExG = 2G − R − B lifts the plant off the background'],['Threshold','Adaptive threshold: plant = 1, background = 0'],['Morphology','Noise removal, closing and dilation fill gaps'],['Canopy area','Mask pixel count × calibration factor']];
+const stepsEl=$('#steps'),cv=[];
+NAMES.forEach(a=>{const d=document.createElement('div');d.className='step';d.innerHTML='<canvas width="'+W+'" height="'+H+'"></canvas><b>'+a[0]+'</b><span>'+a[1]+'</span>';stepsEl.appendChild(d);cv.push(d.querySelector('canvas').getContext('2d'))});
+const src=document.createElement('canvas');src.width=W;src.height=H;const sc=src.getContext('2d',{willReadFrequently:true});
+const CAL=.0125,A=.14,B=.6;
+function growth(day){const g=(day-1)/20;return g*g*(3-2*g)*.9+g*.1}
+function drawPlant(day){
+ const r=rng(42),g=growth(day);
+ const bg=sc.createRadialGradient(W/2,H/2,10,W/2,H/2,W*.62);bg.addColorStop(0,'#5a44c8');bg.addColorStop(1,'#241a5c');sc.fillStyle=bg;sc.fillRect(0,0,W,H);
+ sc.fillStyle='rgba(210,200,255,.55)';sc.fillRect(0,0,W,3);sc.fillRect(0,H-3,W,3);
+ sc.save();sc.translate(W/2,H/2);
+ sc.fillStyle='#8f88b4';sc.fillRect(-13,-13,26,26);
+ const n=Math.min(16,3+Math.round(day*.65));
+ for(let i=0;i<n;i++){
+  const ang=i*2.399+.4,age=1-i*.045,len=(7+g*50)*Math.max(.35,age),wd=len*.5;
+  sc.save();sc.rotate(ang);sc.translate(len*.55,0);
+  const c=[52+r()*26,140+r()*40,96+r()*30];
+  sc.fillStyle='rgb('+c.map(Math.round).join(',')+')';sc.beginPath();sc.ellipse(0,0,len*.56,wd*.5,0,0,7);sc.fill();
+  sc.strokeStyle='rgba(190,255,220,.55)';sc.lineWidth=1;sc.beginPath();sc.moveTo(-len*.5,0);sc.lineTo(len*.5,0);sc.stroke();
+  sc.restore()}
+ sc.restore();
+ for(let i=0;i<26;i++){sc.fillStyle='rgba(110,230,160,.9)';sc.fillRect(r()*W,r()*H,2,2)}
+ const id=sc.getImageData(0,0,W,H),d=id.data,nr=rng(9);
+ for(let i=0;i<d.length;i+=4){const n=(nr()-.5)*26;d[i]+=n;d[i+1]+=n;d[i+2]+=n}
+ sc.putImageData(id,0,0);return sc.getImageData(0,0,W,H)}
+function otsu(v){const h=new Array(256).fill(0);v.forEach(x=>h[x]++);const tot=v.length;let sum=0;for(let i=0;i<256;i++)sum+=i*h[i];let sb=0,wb=0,mx=0,th=128;for(let i=0;i<256;i++){wb+=h[i];if(!wb)continue;const wf=tot-wb;if(!wf)break;sb+=i*h[i];const mb=sb/wb,mf=(sum-sb)/wf,v=wb*wf*(mb-mf)*(mb-mf);if(v>mx){mx=v;th=i}}return th}
+function morph(m,r,dil){const o=new Uint8Array(m.length);for(let y=0;y<H;y++)for(let x=0;x<W;x++){let hit=dil?0:1;
+  for(let dy=-r;dy<=r&&(dil?!hit:hit);dy++){const yy=y+dy;if(yy<0||yy>=H){if(!dil)hit=0;continue}for(let dx=-r;dx<=r;dx++){const xx=x+dx;const v=(xx<0||xx>=W)?(dil?0:1):m[yy*W+xx];if(dil){if(v){hit=1;break}}else if(!v){hit=0;break}}}
+  o[y*W+x]=hit}return o}
+function hsv(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;let h=0;if(d){if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;if(h<0)h+=360}return[h,mx?d/mx:0,mx]}
+function h2rgb(h,s,v){const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;let r=0,g=0,b=0;if(h<60){r=c;g=x}else if(h<120){r=x;g=c}else if(h<180){g=c;b=x}else if(h<240){g=x;b=c}else if(h<300){r=x;b=c}else{r=c;b=x}return[(r+m)*255,(g+m)*255,(b+m)*255]}
+let renderDay=12,pending=false;
+function runPipe(day){
+ const raw=drawPlant(day),d=raw.data,N=W*H;
+ cv[0].putImageData(raw,0,0);
+ const o1=cv[1].createImageData(W,H),o2=cv[2].createImageData(W,H),ex=new Uint8Array(N);
+ for(let i=0;i<N;i++){const r=d[i*4],g=d[i*4+1],b=d[i*4+2];
+  const[hh,ss,vv]=hsv(r,g,b),c=h2rgb(hh,1,.35+.65*vv);o1.data.set([c[0],c[1],c[2],255],i*4);
+  const e=Math.max(0,Math.min(255,(2*g-r-b+200)*255/450));ex[i]=e;o2.data.set([e*.55,e,e*.7,255],i*4)}
+ cv[1].putImageData(o1,0,0);cv[2].putImageData(o2,0,0);
+ const th=otsu(ex),m=new Uint8Array(N);for(let i=0;i<N;i++)m[i]=ex[i]>th?1:0;
+ const show=(ctx,mask,tint)=>{const o=ctx.createImageData(W,H);for(let i=0;i<N;i++){const v=mask[i]?255:0;o.data.set(tint&&mask[i]?[35,230,192,255]:[v,v,v,255],i*4)}ctx.putImageData(o,0,0)};
+ show(cv[3],m);
+ let m2=morph(morph(m,1,0),1,1);m2=morph(morph(m2,3,1),3,0);
+ show(cv[4],m2);
+ const o5=cv[5].createImageData(W,H);let px=0;
+ for(let i=0;i<N;i++){const on=m2[i];px+=on;const edge=on&&(i%W===0||!m2[i-1]||!m2[i+1]||!m2[i-W]||!m2[i+W]);
+  if(edge)o5.data.set([35,230,192,255],i*4);else if(on)o5.data.set([d[i*4]*.5+18,d[i*4+1]*.5+115,d[i*4+2]*.5+96,255],i*4);else o5.data.set([d[i*4]*.35,d[i*4+1]*.35,d[i*4+2]*.35,255],i*4)}
+ cv[5].putImageData(o5,0,0);
+ const cm=px*CAL,g=A*cm+B;
+ $('#rPx').innerHTML=px.toLocaleString()+'<small>px</small>';$('#rCm').innerHTML=cm.toFixed(1)+'<small>cm&sup2;</small>';$('#rG').innerHTML=g.toFixed(1)+'<small>g</small>';
+ $('#dayLbl').textContent='Day '+day;drawGrowth(day)}
+function drawGrowth(day){const c=$('#growth'),[x,w,h]=setup(c);const P={l:42,r:14,t:12,b:30},pw=w-P.l-P.r,ph=h-P.t-P.b;
+ x.font='10px '+css('--f-mono');x.textBaseline='middle';
+ const ymax=Math.ceil((A*9500*CAL*1.05+B)/5)*5;
+ for(let i=0;i<=4;i++){const yy=P.t+ph-ph*i/4;x.strokeStyle='rgba(150,132,255,.15)';x.beginPath();x.moveTo(P.l,yy);x.lineTo(w-P.r,yy);x.stroke();x.fillStyle=css('--mut');x.textAlign='right';x.fillText((ymax*i/4).toFixed(0)+' g',P.l-6,yy)}
+ x.textAlign='center';[1,7,14,21].forEach(dd=>{x.fillStyle=css('--mut');x.fillText('d'+dd,P.l+pw*(dd-1)/20,h-12)});
+ const val=dd=>{const g=growth(dd);return A*(9500*g*.98+80)*CAL+B};
+ x.beginPath();for(let dd=1;dd<=21;dd+=.25){const px=P.l+pw*(dd-1)/20,py=P.t+ph-ph*val(dd)/ymax;dd===1?x.moveTo(px,py):x.lineTo(px,py)}
+ x.strokeStyle=css('--teal');x.lineWidth=2.5;x.stroke();
+ x.lineTo(P.l+pw,P.t+ph);x.lineTo(P.l,P.t+ph);const gr=x.createLinearGradient(0,P.t,0,P.t+ph);gr.addColorStop(0,'rgba(35,230,192,.28)');gr.addColorStop(1,'rgba(35,230,192,0)');x.fillStyle=gr;x.fill();
+ const mx=P.l+pw*(day-1)/20,my=P.t+ph-ph*val(day)/ymax;x.strokeStyle='rgba(169,148,255,.6)';x.setLineDash([4,4]);x.lineWidth=1;x.beginPath();x.moveTo(mx,P.t);x.lineTo(mx,P.t+ph);x.stroke();x.setLineDash([]);
+ x.fillStyle='#fff';x.beginPath();x.arc(mx,my,5,0,7);x.fill();x.strokeStyle=css('--teal');x.lineWidth=2;x.stroke()}
+function schedule(d){renderDay=d;if(pending)return;pending=true;requestAnimationFrame(()=>{pending=false;runPipe(renderDay)})}
+const dayEl=$('#day');dayEl.oninput=()=>schedule(+dayEl.value);
+let playing=false,pt=null;
+$('#play').onclick=()=>{playing=!playing;$('#playIcon').setAttribute('d',playing?'M2 1.5h3.5v11H2zM8.5 1.5H12v11H8.5z':'M3 1.5v11l9-5.5z');
+ clearInterval(pt);if(playing){if(+dayEl.value>=21)dayEl.value=1;pt=setInterval(()=>{let v=+dayEl.value+1;if(v>21){playing=false;clearInterval(pt);$('#playIcon').setAttribute('d','M3 1.5v11l9-5.5z');return}dayEl.value=v;schedule(v)},520)}};
+
+/* ================= CHARTS ================= */
+function setup(c){const dpr=Math.min(devicePixelRatio||1,2),r=c.getBoundingClientRect(),w=r.width||300,h=r.height||200;c.width=w*dpr;c.height=h*dpr;const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);x.clearRect(0,0,w,h);return[x,w,h]}
+const mut=()=>css('--mut'),grd='rgba(150,132,255,.15)';
+function frameAxes(x,w,h,P,yl,yr,xt){const pw=w-P.l-P.r,ph=h-P.t-P.b;x.font='10px '+css('--f-mono');x.textBaseline='middle';
+ for(let i=0;i<=4;i++){const yy=P.t+ph-ph*i/4;x.strokeStyle=grd;x.lineWidth=1;x.beginPath();x.moveTo(P.l,yy);x.lineTo(w-P.r,yy);x.stroke();x.fillStyle=mut();
+  x.textAlign='right';x.fillText(yl.fmt(yl.min+(yl.max-yl.min)*i/4),P.l-6,yy);if(yr){x.textAlign='left';x.fillText(yr.fmt(yr.min+(yr.max-yr.min)*i/4),w-P.r+6,yy)}}
+ x.textAlign='center';xt.forEach(t=>x.fillText(t.l,P.l+pw*t.v,h-P.b+16));return{pw,ph}}
+function series(x,P,pw,ph,data,min,max,color,lw=1.6){x.beginPath();data.forEach((v,i)=>{const px=P.l+pw*i/(data.length-1),py=P.t+ph-ph*(v-min)/(max-min);i?x.lineTo(px,py):x.moveTo(px,py)});x.strokeStyle=color;x.lineWidth=lw;x.lineJoin='round';x.stroke();
+ const lx=P.l+pw,ly=P.t+ph-ph*(data[data.length-1]-min)/(max-min);x.fillStyle=color;x.beginPath();x.arc(lx,ly,3.5,0,7);x.fill()}
+function smooth(n,r,s){const a=[];let v=0;for(let i=0;i<n;i++){v=v*s+(r()-.5)*(1-s)*2;a.push(v)}return a}
+const NP=289,xt72=[0,12,24,36,48,60,72].map(h=>({l:h+'h',v:h/72}));
+const rr=rng(11),n1=smooth(NP,rr,.8),n2=smooth(NP,rr,.8);
+const temp=[],rh=[],tvoc=[],co2=[];
+for(let i=0;i<NP;i++){const t=i/4,ph=Math.sin(t/22*Math.PI*2+.6),saw=((t%22)/22);
+ temp.push(clampN(27.9+2.1*ph+n1[i]*1.5-(saw>.92?1.5:0),24.3,31.7));rh.push(clampN(46-2.6*ph+n2[i]*2.6,40,52));
+ const sp=rr()>.965?rr()*110:0;tvoc.push(clampN(62+n1[i]*38+sp+n2[i]*20,30,230));co2.push(clampN(470+n2[i]*140+(rr()>.96?rr()*190:0)+ph*20,400,750))}
+function clampN(v,a,b){return Math.min(b,Math.max(a,v))}
+function drawCharts(){
+ {const[x,w,h]=setup($('#cClimate'));const P={l:36,r:36,t:24,b:26},yl={min:24,max:32,fmt:v=>v.toFixed(0)},yr={min:40,max:52,fmt:v=>v.toFixed(0)};
+  const{pw,ph}=frameAxes(x,w,h,P,yl,yr,xt72);series(x,P,pw,ph,rh,40,52,css('--amber'));series(x,P,pw,ph,temp,24,32,css('--blurple'),2);
+  x.fillStyle=css('--mut');x.textAlign='left';x.fillText('°C',4,P.t+2);x.textAlign='right';x.fillText('%RH',w-2,6)}
+ {const[x,w,h]=setup($('#cAir'));const P={l:40,r:40,t:24,b:26},yl={min:0,max:250,fmt:v=>v.toFixed(0)},yr={min:400,max:750,fmt:v=>v.toFixed(0)};
+  const{pw,ph}=frameAxes(x,w,h,P,yl,yr,xt72);series(x,P,pw,ph,co2,400,750,css('--red'),1.3);series(x,P,pw,ph,tvoc,0,250,css('--teal'),1.5);
+  x.fillStyle=css('--mut');x.textAlign='left';x.fillText('ppb',4,6);x.textAlign='right';x.fillText('ppm',w-2,6)}
+ {const[x,w,h]=setup($('#cMape'));const P={l:34,r:12,t:12,b:28},yl={min:0,max:16,fmt:v=>v.toFixed(0)};const{pw,ph}=frameAxes(x,w,h,P,yl,null,[]);
+  const v=[5.1,7.6,7.8,6.6,6.6,7.6],bw=pw/6;
+  v.forEach((m,i)=>{const bh=ph*m/16,bx=P.l+bw*i+bw*.18,by=P.t+ph-bh,g=x.createLinearGradient(0,by,0,by+bh);g.addColorStop(0,css('--glow'));g.addColorStop(1,css('--blurple'));x.fillStyle=g;x.beginPath();x.roundRect?x.roundRect(bx,by,bw*.64,bh,[5,5,0,0]):x.rect(bx,by,bw*.64,bh);x.fill();
+   x.fillStyle=css('--fg');x.textAlign='center';x.fillText(m.toFixed(1),bx+bw*.32,by-9);x.fillStyle=mut();x.fillText('T'+(i+1),bx+bw*.32,h-P.b+16)});
+  const ty=P.t+ph-ph*15/16;x.strokeStyle=css('--amber');x.setLineDash([5,4]);x.beginPath();x.moveTo(P.l,ty);x.lineTo(w-P.r,ty);x.stroke();x.setLineDash([]);x.fillStyle=css('--amber');x.textAlign='right';x.fillText('target 15%',w-P.r,ty-8);
+  const my=P.t+ph-ph*6.88/16;x.strokeStyle='rgba(236,233,255,.5)';x.setLineDash([2,4]);x.beginPath();x.moveTo(P.l,my);x.lineTo(w-P.r,my);x.stroke();x.setLineDash([])}
+ {const[x,w,h]=setup($('#cScatter'));const P={l:38,r:14,t:12,b:34},lo=8,hi=28;const yl={min:lo,max:hi,fmt:v=>v.toFixed(0)};
+  const{pw,ph}=frameAxes(x,w,h,P,yl,null,[8,13,18,23,28].map(v=>({l:v+'',v:(v-lo)/(hi-lo)})));
+  const X=v=>P.l+pw*(v-lo)/(hi-lo),Y=v=>P.t+ph-ph*(v-lo)/(hi-lo);
+  x.strokeStyle='rgba(236,233,255,.35)';x.setLineDash([5,4]);x.beginPath();x.moveTo(X(lo),Y(lo));x.lineTo(X(hi),Y(hi));x.stroke();x.setLineDash([]);
+  const M=[12,14.5,16.5,18,20.5,22.5],e=[5.1,7.6,7.8,6.6,6.6,7.6],s=[-1,1,-1,1,-1,1];
+  M.forEach((m,i)=>{const p=m*(1+s[i]*e[i]/100);const g=x.createRadialGradient(X(m),Y(p),0,X(m),Y(p),12);g.addColorStop(0,'rgba(124,92,255,.5)');g.addColorStop(1,'rgba(124,92,255,0)');x.fillStyle=g;x.fillRect(X(m)-12,Y(p)-12,24,24);
+   x.fillStyle=css('--glow');x.beginPath();x.arc(X(m),Y(p),5,0,7);x.fill();x.fillStyle=mut();x.textAlign='left';x.fillText('T'+(i+1),X(m)+8,Y(p)+(s[i]>0?-8:10))});
+  x.fillStyle=mut();x.textAlign='center';x.fillText('measured (g)',P.l+pw/2,h-6);x.save();x.translate(9,P.t+ph/2);x.rotate(-Math.PI/2);x.fillText('predicted (g)',0,0);x.restore()}
+}
+/* live feed */
+const FEED=[{k:'Temperature',u:'°C',min:24.5,max:31,v:27.8,dp:1,col:'--blurple'},{k:'Humidity',u:'%RH',min:40,max:52,v:46,dp:1,col:'--amber'},{k:'eCO₂',u:'ppm',min:400,max:750,v:480,dp:0,col:'--red'},{k:'TVOC',u:'ppb',min:30,max:230,v:70,dp:0,col:'--teal'}];
+const live=$('#live');FEED.forEach((f,i)=>{f.h=[];f.mid=(f.min+f.max)/2;for(let j=0;j<40;j++)f.h.push(f.v);const t=document.createElement('div');t.className='tile';t.innerHTML='<span>'+f.k+'</span><b>--<small>'+f.u+'</small></b><canvas></canvas>';live.appendChild(t);f.el=t.querySelector('b');f.cv=t.querySelector('canvas')});
+function feedStep(){FEED.forEach(f=>{const sp=(f.max-f.min);f.v=clampN(f.v+(Math.random()-.5)*sp*.07+(f.mid-f.v)*.03,f.min,f.max);f.h.push(f.v);f.h.shift();f.el.innerHTML=f.v.toFixed(f.dp)+'<small>'+f.u+'</small>';
+  const[x,w,h]=setup(f.cv);x.beginPath();f.h.forEach((v,i)=>{const px=w*i/39,py=h-3-(h-8)*(v-f.min)/(f.max-f.min);i?x.lineTo(px,py):x.moveTo(px,py)});x.strokeStyle=css(f.col);x.lineWidth=1.6;x.stroke();
+  const ly=h-3-(h-8)*(f.v-f.min)/(f.max-f.min);x.fillStyle=css(f.col);x.beginPath();x.arc(w-2,ly,3,0,7);x.fill()})}
+let fi=null;visible(live,v=>{clearInterval(fi);if(v){feedStep();if(!reduce)fi=setInterval(feedStep,1100)}});
+/* meters */
+const MET=[
+ {n:'Biomass prediction error',s:'target < 15% MAPE',val:'6.9%',pct:6.9/20,mark:15/20},
+ {n:'Linear fit, canopy to mass',s:'target R² > 0.90',val:'0.91',pct:.91,mark:.9},
+ {n:'Independent growth trials',s:'target ≥ 4 trials',val:'6',pct:6/8,mark:4/8},
+ {n:'Climate held over monitoring',s:'±3 °C and ±6 %RH over 72 h',val:'72 h',pct:1,mark:null},
+ {n:'Manual biomass measurement',s:'target: none during growth',val:'none',pct:1,mark:null}];
+$('#meters').innerHTML=MET.map(m=>'<div class="meter"><div class="n">'+m.n+'<small>'+m.s+'</small></div><div class="bar"><i style="width:'+(m.pct*100)+'%"></i>'+(m.mark!=null?'<u style="left:'+(m.mark*100)+'%"></u>':'')+'</div><b>'+m.val+'</b></div>').join('');
+
+/* ================= DECISIONS ================= */
+const DEC=[
+ {t:'Control board',cols:[['Compute',30],['I/O & sensors',20],['Wireless',15],['Ecosystem',10],['Cost & power',15]],rows:[['Teensy 4',[4,4,5,4,5],425],['ESP32',[5,4,2,4,3],395],['Arduino Uno',[2,3,1,5,5],315]],why:'Teensy 4 won on overall balance of compute, sensor I/O and cost.'},
+ {t:'Nutrient',cols:[['Growth',20],['Ease & simplicity',30],['Cost & availability',30],['Reproducibility',10]],rows:[['Miracle-Gro',[4,5,5,4],450],['3-part hydroponic',[5,2,3,5],355],['Salt-based formula',[4,3,4,4],370]],why:'Miracle-Gro scored highest because it is simple, cheap and easy to source and repeat.'},
+ {t:'Lighting',cols:[['Growth',20],['CV stability',20],['Thermal & energy',20],['Cost & simplicity',25]],rows:[['Blurple',[5,5,4,5],455],['Blue-heavy',[4,4,4,4],405],['White full',[4,4,3,4],375],['Tunable',[5,5,4,3],400]],why:'A fixed blurple spectrum gave top growth and the most stable computer-vision results.'}];
+let dsel=0;const dt=$('#dtabs'),tb=$('#dtable');
+DEC.forEach((d,i)=>{const b=document.createElement('button');b.className='chip';b.textContent=d.t;b.setAttribute('role','tab');b.onclick=()=>{dsel=i;drawDec()};dt.appendChild(b)});
+function drawDec(){const d=DEC[dsel];[...dt.children].forEach((c,i)=>c.setAttribute('aria-pressed',i===dsel));const best=Math.max(...d.rows.map(r=>r[2]));
+ tb.innerHTML='<thead><tr><th>Option</th>'+d.cols.map(c=>'<th>'+c[0]+'<small>weight '+c[1]+'</small></th>').join('')+'<th style="min-width:150px">Weighted total</th></tr></thead><tbody>'+
+ d.rows.map(r=>'<tr class="'+(r[2]===best?'win':'')+'"><td>'+r[0]+(r[2]===best?' &#10003;':'')+'</td>'+r[1].map(v=>'<td class="s">'+v+'</td>').join('')+'<td><div class="tot"><div class="bar"><i style="width:'+(r[2]/5)+'%;max-width:100%"></i></div><b>'+r[2]+'</b></div></td></tr>').join('')+'</tbody>';
+ $('#dwhy').textContent=d.why}
+drawDec();
+
+/* boot */
+function boot(){runPipe(12);drawCharts()}
+boot();feedStep();
+let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{drawCharts();drawGrowth(+dayEl.value)},150)});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{drawCharts();drawGrowth(+dayEl.value)});
+})();
+</script>
+
+</body></html>
